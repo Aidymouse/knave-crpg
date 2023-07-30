@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.10" tiledversion="1.10.1" orientation="isometric" renderorder="right-down" width="8" height="8" tilewidth="256" tileheight="128" infinite="0" nextlayerid="8" nextobjectid="1">
+ <tileset firstgid="1" source="CRPG Tiles.tsx"/>
+ <tileset firstgid="5" source="CRPG Tiles 2.tsx"/>
+ <layer id="1" name="z0" width="8" height="8">
+  <properties>
+   <property name="z_level" type="int" value="0"/>
+  </properties>
+  <data encoding="csv">
+2,2,2,2,2,4,3,5,
+2,2,2,2,2,4,3,5,
+2,2,2,2,2,4,3,5,
+2,2,2,2,2,4,3,5,
+2,2,2,2,2,4,3,5,
+4,4,4,4,4,4,3,5,
+3,3,3,3,3,3,3,5,
+5,5,5,5,5,5,5,5
+</data>
+ </layer>
+ <layer id="4" name="z1" width="8" height="8" offsetx="0" offsety="-128">
+  <properties>
+   <property name="z_level" type="int" value="1"/>
+  </properties>
+  <data encoding="csv">
+2,2,2,2,2,0,0,0,
+2,2,2,2,2,0,0,0,
+2,2,2,2,2,0,0,0,
+2,2,2,2,2,0,0,0,
+2,2,2,2,2,0,0,0,
+0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0
+</data>
+ </layer>
+ <layer id="5" name="z2" width="8" height="8" offsetx="0" offsety="-256">
+  <properties>
+   <property name="z_level" type="int" value="2"/>
+  </properties>
+  <data encoding="csv">
+2,2,2,2,0,0,0,0,
+2,2,2,2,0,0,0,0,
+2,2,2,2,0,0,0,0,
+2,2,2,2,0,0,0,0,
+0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0
+</data>
+ </layer>
+ <layer id="6" name="z3" width="8" height="8" offsetx="0" offsety="-384">
+  <properties>
+   <property name="z_level" type="int" value="3"/>
+  </properties>
+  <data encoding="csv">
+2,2,2,0,0,0,0,0,
+2,2,2,0,0,0,0,0,
+2,2,2,0,0,0,0,0,
+0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0
+</data>
+ </layer>
+ <layer id="7" name="z4" width="8" height="8" offsetx="0" offsety="-512">
+  <properties>
+   <property name="z_level" type="int" value="4"/>
+  </properties>
+  <data encoding="csv">
+3,3,0,0,0,0,0,0,
+3,3,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0
+</data>
+ </layer>
+</map>

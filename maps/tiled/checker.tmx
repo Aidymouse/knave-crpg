@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.10" tiledversion="1.10.1" orientation="isometric" renderorder="right-down" width="8" height="8" tilewidth="256" tileheight="128" infinite="0" nextlayerid="2" nextobjectid="1">
+ <editorsettings>
+  <export target="../checker.lua" format="lua"/>
+ </editorsettings>
+ <tileset firstgid="1" source="test_tiles.tsx"/>
+ <layer id="1" name="Tile Layer 1" width="8" height="8">
+  <properties>
+   <property name="z_level" type="int" value="0"/>
+  </properties>
+  <data encoding="csv">
+3,4,3,4,3,4,3,4,
+4,3,4,3,4,3,4,3,
+3,4,3,4,3,4,3,4,
+4,3,4,3,4,3,4,3,
+3,4,3,4,3,4,3,4,
+4,3,4,3,4,3,4,3,
+3,4,3,4,3,4,3,4,
+4,3,4,3,4,3,4,3
+</data>
+ </layer>
+</map>

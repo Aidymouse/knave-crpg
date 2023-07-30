@@ -1,0 +1,129 @@
+{
+    "Map/SizeTest": {
+        "height": 4300,
+        "width": 2
+    },
+    "activeFile": "checker.tmx",
+    "expandedProjectPaths": [
+        "C:/Users/aidan/OneDrive/Desktop/Programming/knave-crpg-concept",
+        ".",
+        "tiled",
+        "C:/Users/aidan/OneDrive/Desktop/Programming/knave-crpg-concept/.vscode",
+        "C:/Users/aidan/Desktop/Programming/Lua/knave-crpg-2/maps",
+        "C:/Users/aidan/Desktop/Programming/Lua/knave-crpg-2"
+    ],
+    "fileStates": {
+        "CRPG Tiles 2.tsx": {
+            "dynamicWrapping": true,
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        },
+        "CRPG Tiles.tsx": {
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        },
+        "blank.tmx": {
+            "scale": 0.125,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 4568,
+                "y": 2192
+            }
+        },
+        "checker.tmx": {
+            "scale": 0.648486328125,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 818.829907386492,
+                "y": 511.96144868609287
+            }
+        },
+        "dungeon.tmx": {
+            "scale": 0.25,
+            "selectedLayer": 1,
+            "viewCenter": {
+                "x": 4096,
+                "y": 1534
+            }
+        },
+        "dungeon.tsx": {
+            "dynamicWrapping": true,
+            "scaleInDock": 0.33,
+            "scaleInEditor": 1
+        },
+        "fence.tsx": {
+            "dynamicWrapping": true,
+            "scaleInDock": 0.25,
+            "scaleInEditor": 1
+        },
+        "small.tmx": {
+            "scale": 0.33,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 545.4545454545455,
+                "y": -406.060606060606
+            }
+        },
+        "test_tiles.tsx": {
+            "dynamicWrapping": false,
+            "scaleInDock": 0.25,
+            "scaleInEditor": 1
+        },
+        "testmap.tmx": {
+            "scale": 0.5,
+            "selectedLayer": 2,
+            "viewCenter": {
+                "x": 992,
+                "y": 240
+            }
+        },
+        "tiled/CRPG Tiles.tsx": {
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        },
+        "tiled/blank.tmx": {
+            "scale": 0.75,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 457.33333333333326,
+                "y": 275.99999999999994
+            }
+        }
+    },
+    "last.exportedFilePath": "C:/Users/aidan/Desktop/Programming/Lua/knave-crpg-2/maps",
+    "last.imagePath": "C:/Users/aidan/Desktop/Programming/Lua/knave-crpg-2/graphics",
+    "lastUsedTilesetExportFilter": "Lua files (*.lua)",
+    "map.height": 8,
+    "map.lastUsedExportFilter": "Lua files (*.lua)",
+    "map.lastUsedFormat": "tmx",
+    "map.orientation": null,
+    "map.tileHeight": 128,
+    "map.tileWidth": 256,
+    "map.width": 8,
+    "openFiles": [
+        "test_tiles.tsx",
+        "testmap.tmx",
+        "fence.tsx",
+        "dungeon.tsx",
+        "dungeon.tmx",
+        "checker.tmx"
+    ],
+    "project": "Concept Maps.tiled-project",
+    "property.type": "int",
+    "recentFiles": [
+        "test_tiles.tsx",
+        "testmap.tmx",
+        "fence.tsx",
+        "dungeon.tsx",
+        "dungeon.tmx",
+        "checker.tmx",
+        "small.tmx",
+        "CRPG Tiles.tsx",
+        "CRPG Tiles 2.tsx",
+        "blank.tmx",
+        "tiled/blank.tmx",
+        "tiled/CRPG Tiles.tsx"
+    ],
+    "tileset.lastUsedFormat": "tsx",
+    "tileset.type": 1
+}
