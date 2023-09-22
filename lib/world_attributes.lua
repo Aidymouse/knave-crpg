@@ -2,6 +2,8 @@ local l_vec = require 'lib.vec3'
 
 local u_matrix = require 'util.matrix'
 
+-- Cell width and height describe the world as if it were a 2d grid of squares from the top down
+
 local CELL_WIDTH = 256
 local CELL_HEIGHT = 256
 

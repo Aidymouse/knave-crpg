@@ -5,5 +5,7 @@ return {
 
     tile_count = 1,
     pause_water_bobbing = false,
-    tile_red = 1
+    tile_red = 1,
+
+    draw_tile_origin_point = true
 }

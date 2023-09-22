@@ -1,13 +1,13 @@
 local l_vec = require "lib.vec3"
 local l_worldattr = require 'lib.world_attributes'
 
-local o_Entity = require 'obj.entity'
+local o_Entity = require 'entity.entity'
 
 Actor = {
     __call = function(_, pos)
         
         local actor = o_Entity(pos, {
-            image = love.graphics.newImage("graphics/actor.png")
+            image = love.graphics.newImage("graphics/tiles OLD/actor.png")
         })
 
         Actor.update_z_order(actor)

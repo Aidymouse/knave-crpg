@@ -1,7 +1,7 @@
 local l_vec = require 'lib.vec3'
 local l_WorldAttr = require 'lib.world_attributes'
 
-local o_Entity = require 'obj.entity'
+local o_Entity = require 'entity.entity'
 
 Map_Cell = {
     __call = function(_, position, tile_gid)
