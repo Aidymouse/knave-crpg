@@ -22,7 +22,12 @@
 -- -----------------------
 --]]
 local IsoRenderer = {}
-local debug = false
+local debug = {
+	-- Global switch
+	enabled=false,
+	-- Tint drawn objects based on depth
+	draw_depth=false,
+}
 
 ---@alias IsoDrawable = Tile | Wall | Billboard
 
@@ -49,41 +54,88 @@ function IsoRenderer:new()
 		--    \/\/ <-- 5
 		--     \/
 		depth_lines = { },
+
+		max_depth=0,
+
+		-- entity id to current depth, for changing
+		depth_record = {
+			remove_entity = function(self, ent)
+				for k,v in ipairs(self) do
+					if k == ent.id then
+						table.remove(self, k)
+					end
+				end
+			end
+		}
 	}
 
 	local corner_width = o.tile_draw_rect.width / 2
 	local corner_height = o.tile_draw_rect.height / 2
-
 	o.tile_side_length = math.sqrt(corner_width * corner_width + corner_height * corner_height)
-	print("Tile side length", o.tile_side_length)
-	
 
-	setmetatable(o, self)
-	self.__index = self
+	print("Tile side length", o.tile_side_length)
+
+	setmetatable(o, {__index = self})
 	return o
 end
 
 ---@param d IsoDrawable
 -- TODO: maintain a depth cache too
-function IsoRenderer:update_depth(d)
-	if (d.type == "tile") then
-		-- Highest of floored X or Y position
-		-- TODO: something off with this...
-		local depth = math.max(math.floor(d.pos.x), math.floor(d.pos.y))
-		if self.depth_lines[depth] == nil then
-			self.depth_lines[depth] = {}
-		end
-		table.insert(self.depth_lines[depth], d)
+function IsoRenderer:update_depth(ent)
+	local depth = IsoRenderer.get_depth(ent)
 
-	elseif (d.type == "billboard") then
-		local depth = math.floor(d.pos.y)
-		if self.depth_lines[depth] == nil then
-			self.depth_lines[depth] = {}
-		end
-		table.insert(self.depth_lines[depth], d)
-		
-
+	if self.depth_record[ent.id] == depth then
+		return
 	end
+
+	if self.depth_record[ent.id] ~= nil then
+		local cur_depth = self.depth_record[ent.id]
+		self.depth_lines[cur_depth]:remove_entity(ent)
+		self.depth_record:remove_entity(ent)
+	end
+
+	if self.depth_lines[depth] == nil then
+		self.max_depth = math.max(self.max_depth, depth)
+		self.depth_lines[depth] = {
+			depth=depth,
+			billboard={},
+			wall={},
+			tile={},
+			remove_entity = function (self, ent)
+				for kb,e in ipairs(self.billboard) do if e.id == ent.id then table.remove(self.billboard, kb) return end end
+				for kw,e in ipairs(self.wall) do if e.id == ent.id then table.remove(self.wall, kw) return end end
+				for kt,e in ipairs(self.tile) do if e.id == ent.id then table.remove(self.tile, kt) return end end
+			end
+		}
+	end
+
+	table.insert(self.depth_lines[depth][ent.type], ent)
+
+	if (ent.type == "billboard") then
+		table.sort(self.depth_lines[depth][ent.type], function (a, b) return a.pos.y < b.pos.y end)
+
+		for k,v in pairs(self.depth_lines[depth][ent.type]) do
+		end
+	end
+
+	print("Adding ent "..ent.id.." ("..ent.type..") to depth "..depth)
+	self.depth_record[ent.id] = depth
+end
+
+
+function IsoRenderer.get_depth(d)
+	if (d.type == "tile") then
+		local depth = math.floor(d.pos.x)+math.floor(d.pos.y)
+		return depth
+	elseif (d.type == "billboard") then
+
+		-- If we *cross* any depth lines, we need to be on higher depth
+
+		local depth = math.max(math.floor(d.pos.y)+math.floor(d.pos.x)) + 1
+		return depth
+	end
+
+	return -1
 end
 
 ---@param tile Tile
@@ -105,10 +157,11 @@ function IsoRenderer:draw_tile(tile)
 	})
 
 
-	if debug then
+	if debug.enabled then
 		--love.graphics.print(tile_coord.x .. ", " .. tile_coord.y, screen_coord.x-tile_size/2, screen_coord.y-tile_size/4)
 		love.graphics.circle('fill', screen_coord.x, screen_coord.y, 1)
 	end
+
 
 end
 
@@ -129,7 +182,7 @@ function IsoRenderer:draw_rect(center_coord, width, height)
 		left.x, left.y
 	})
 
-	if (debug) then
+	if (debug.enabled) then
 		love.graphics.circle('fill', center.x, center.y, 2)	
 	end
 
@@ -150,7 +203,7 @@ function IsoRenderer:draw_billboard(billboard)
 	love.graphics.setColor(billboard.color)
 	love.graphics.rectangle('fill', screen_pos.x-screen_width/2, screen_pos.y-screen_height, screen_width, screen_height)
 
-	if debug then
+	if debug.enabled then
 		love.graphics.setColor(0.6, 0, 0)
 		love.graphics.circle('fill', screen_pos.x, screen_pos.y, 2)
 	end
@@ -173,7 +226,7 @@ function IsoRenderer:draw_wall(wall)
 		screen_from.x, screen_from.y - (height*self.tile_side_length),
 	})
 
-	if (debug) then
+	if (debug.enabled) then
 		love.graphics.circle('fill', screen_from.x, screen_from.y, 2)
 		love.graphics.setColor(0, 0.6, 0)
 		love.graphics.circle('fill', screen_to.x, screen_to.y, 2)
@@ -205,11 +258,26 @@ function IsoRenderer:draw_world()
 	-- 1st pass - ground. Draw all ground tiles in proper order: 
 	-- 2nd pass - upright tiles. Draw all upright tiles in order of their base positions down.
 	-- (intersecting polygons might get weird)
-	for depth,line in ipairs(self.depth_lines) do
-		for k,isoDrawable in ipairs(line) do
-			self:draw_iso_drawable(isoDrawable)
+	render_order = ""
+	for depth=0,self.max_depth,1 do
+		local line = self.depth_lines[depth]
+		if (line == nil) then goto continue end
+
+		render_order = render_order..depth..","
+		
+
+		for k,tile in ipairs(line.tile) do
+			self:draw_iso_drawable(tile)
 		end
+
+		for k,billboard in ipairs(line.billboard) do
+			self:draw_iso_drawable(billboard)
+		end
+
+		::continue::
 	end
+
+	--print(render_order)
 end
 
 ---@param coord Coord Coordinate in tile space
