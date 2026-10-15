@@ -108,12 +108,35 @@ function love.update(dt)
 end
 
 
+local Vec2 = require "Vec2"
+
 function love.draw()
 
 	love.graphics.translate(400, 50)
 	love.graphics.scale(1.5, 1.5)
 
 	renderer:draw_world()
+
+	local wall = Wall:New({
+		from={x=1, y=1},
+		to={x=2,y=1}
+	})
+
+
+
+
+	renderer:draw_wall(wall)
+
+	local f = renderer:am_i_in_front_of_wall(player.billboard.pos, wall)
+
+	love.graphics.setColor(1,0,0)
+	if (f) then
+		love.graphics.setColor(1,1,1)
+	end
+
+	local player_pos = renderer.world_to_screen(player.billboard.pos, renderer.tile_draw_rect)
+	love.graphics.circle('fill', player_pos.x, player_pos.y, 3)
+	
 
 	--renderer:draw_wall({x=1, y=1}, {x=1, y=11})
 	--renderer:draw_wall({x=1, y=1}, {x=11, y=1})

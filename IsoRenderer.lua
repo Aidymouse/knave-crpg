@@ -21,6 +21,9 @@
 -- |       ^^-|-^^       |
 -- -----------------------
 --]]
+
+local Vec2 = require "Vec2"
+
 local IsoRenderer = {}
 local debug = {
 	-- Global switch
@@ -120,6 +123,60 @@ function IsoRenderer:update_depth(ent)
 
 	print("Adding ent "..ent.id.." ("..ent.type..") to depth "..depth)
 	self.depth_record[ent.id] = depth
+end
+
+function IsoRenderer:am_i_in_front_of_wall(pos, wall)
+	-- [[ Identify slope of wall ]]
+	--[[
+	local slope = "right"
+
+	-- depth basically = screen Y
+	local screen_from = IsoRenderer.screen_to_world(wall.from, self.tile_draw_rect)
+	local screen_to = IsoRenderer.screen_to_world(wall.to, self.tile_draw_rect)
+
+	if (screen_from.y == screen_to.y) then slope = "flat" end
+	-- TODO: what if wall is straight up and down
+	local top = screen_from
+	local bottom = screen_to
+	if (screen_to.y < screen_from.y) then
+		top = screen_to
+		bottom = screen_from
+	end
+
+	if (bottom.x < bottom.y) then slope = "left" end
+	]]
+
+
+	-- [[ What side am I on? ]]
+	local from_vec = Vec2:New(wall.from.x, wall.from.y)
+	local to_vec = Vec2:New(wall.to.x, wall.to.y)
+	local p_vec = Vec2:New(pos.x, pos.y)
+
+	local wall_vec = from_vec - to_vec
+	local wall_to_p_vec = from_vec - p_vec
+
+
+	-- screen space straight up 
+	local up_vec = Vec2:New(-1, -1)
+
+	local angle_0 = wall_vec:AngleBetween(up_vec)
+	local angle_p = wall_to_p_vec:AngleBetween(up_vec)
+
+	-- TODO: always get an angle going clockwise / counterclockwise to account for how the AngleBetween fn is symmetrical (i.e. only goes up to 180)
+
+	print(math.deg(angle_0), math.deg(angle_p))
+
+	return angle_0 < angle_p
+
+	-- 1. Get an angle of the wall to 0, 0 (top of screen)
+	-- 2. Get angle to point to 0, 0
+	-- 3. If angle 2 > angle 1, in front. Otherwise, behind
+	-- 4. If angle is equal (or just about equal), then check walls other point.
+	
+
+	-- TODO: one day, I could get REALLY fancy with it, and break all lines up such that intersections become split line segments, so even intersecting walls would work. Wow
+	
+
 end
 
 
