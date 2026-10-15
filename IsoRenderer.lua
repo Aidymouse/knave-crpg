@@ -24,6 +24,8 @@
 local IsoRenderer = {}
 local debug = false
 
+---@alias IsoDrawable = Tile | Wall | Billboard
+
 function IsoRenderer:new()
 	local o = {
 		-- The screen-size rectangle that controls how we draw tiles
@@ -32,7 +34,21 @@ function IsoRenderer:new()
 		-- The screen-space length of 1 tile height in the Z direction
 		-- Because of isometry, this should be the same as the length of the tile
 		-- I.e. the dist from the middle top of the draw_rect to the middle of an edge
-		tile_side_length = 0 -- Populated below
+		tile_side_length = 0, -- Populated below
+
+		-- Idea being objects will maintain their depth line when registered with the iso renderer. The render line is the max of the tiles X or Y, then the row is sorted itself.
+		-- We only need to sort a row if there are non-tiles in it, and we only need to sort a row where something has changed
+		-- Cos of how coods are set up it's jus the max of the tiles X or Y coord
+		-- If we have an iso grid, the horizontal line as we see from the top is depth 1
+		-- Depth 2 is the next row of tiles, etc
+		--
+		--     /\  <-- 1
+		--    /\/\ <-- 2
+		--   /\/\/\ <-- 3
+		--   \/\/\/ <-- 4
+		--    \/\/ <-- 5
+		--     \/
+		depth_lines = { },
 	}
 
 	local corner_width = o.tile_draw_rect.width / 2
@@ -47,20 +63,41 @@ function IsoRenderer:new()
 	return o
 end
 
----@param tile_coord WorldCoord - A coordinate in tile space, center of the tile
----@param width number - Tiles width
----@param height number - Tiles height
-function IsoRenderer:draw_tile(tile_coord)
+---@param d IsoDrawable
+-- TODO: maintain a depth cache too
+function IsoRenderer:update_depth(d)
+	if (d.type == "tile") then
+		-- Highest of floored X or Y position
+		-- TODO: something off with this...
+		local depth = math.max(math.floor(d.pos.x), math.floor(d.pos.y))
+		if self.depth_lines[depth] == nil then
+			self.depth_lines[depth] = {}
+		end
+		table.insert(self.depth_lines[depth], d)
 
-	screen_coord = IsoRenderer.world_to_screen(tile_coord, self.tile_draw_rect)
+	elseif (d.type == "billboard") then
+		local depth = math.floor(d.pos.y)
+		if self.depth_lines[depth] == nil then
+			self.depth_lines[depth] = {}
+		end
+		table.insert(self.depth_lines[depth], d)
+		
+
+	end
+end
+
+---@param tile Tile
+function IsoRenderer:draw_tile(tile)
+
+	screen_coord = IsoRenderer.world_to_screen(tile.pos, self.tile_draw_rect)
 
 	screen_width = self.tile_draw_rect.width
 	screen_height = self.tile_draw_rect.height
 	
-	love.graphics.setColor(1, 1, 1)
+	love.graphics.setColor(tile.color)
 
 	-- Only works for squares
-	love.graphics.polygon('line', {
+	love.graphics.polygon('fill', {
 		screen_coord.x - (screen_width/2), screen_coord.y,
 		screen_coord.x, screen_coord.y - (screen_height/2),
 		screen_coord.x + (screen_width/2), screen_coord.y,
@@ -98,22 +135,20 @@ function IsoRenderer:draw_rect(center_coord, width, height)
 
 end
 
---@param tile_coord WorldCoord - The coordinate of the bottom of the billboard
---@param width number - Width of billboard in tilespace. 
---@param height number - Height of the billboard in tile space
+--@param billboard Billboard - The coordinate of the bottom of the billboard
 -- Note that billboards are essentially drawn diagonally on the tile from the perspective of world space, so width = 1 doesn't mean it will stretch the whole diagonal tile
 -- Billboard origin is bottom middle
-function IsoRenderer:draw_billboard(tile_coord, width, height)
+function IsoRenderer:draw_billboard(billboard)
 
 	-- Assuming the billboard is facing the screen, we need to convert tile space width into screen width.
 	-- The long corner-corner measurement of a tile is sqrt(2) as tiles are 1 by 1
-	screen_width = (width / math.sqrt(2)) * self.tile_draw_rect.width
-	screen_height = height * self.tile_side_length
+	screen_width = (billboard.size.width / math.sqrt(2)) * self.tile_draw_rect.width
+	screen_height = billboard.size.height * self.tile_side_length
 
-	screen_pos = IsoRenderer.world_to_screen(tile_coord, self.tile_draw_rect)
+	screen_pos = IsoRenderer.world_to_screen(billboard.pos, self.tile_draw_rect)
 
-	love.graphics.setColor(1, 0, 0)
-	love.graphics.rectangle('line', screen_pos.x-screen_width/2, screen_pos.y-screen_height, screen_width, screen_height)
+	love.graphics.setColor(billboard.color)
+	love.graphics.rectangle('fill', screen_pos.x-screen_width/2, screen_pos.y-screen_height, screen_width, screen_height)
 
 	if debug then
 		love.graphics.setColor(0.6, 0, 0)
@@ -123,17 +158,15 @@ function IsoRenderer:draw_billboard(tile_coord, width, height)
 end
 
 
----@param from WorldCoord - Tile coord to start wall
----@param to WorldCoord - Tile coord to end wall
----@param height number - Height (in tile space) of the wall
-function IsoRenderer:draw_wall(from, to, height)
+---@param wall Wall - Tile coord to start wall
+function IsoRenderer:draw_wall(wall)
 
-	screen_from = IsoRenderer.world_to_screen(from, self.tile_draw_rect)
-	screen_to = IsoRenderer.world_to_screen(to, self.tile_draw_rect)
+	screen_from = IsoRenderer.world_to_screen(wall.from, self.tile_draw_rect)
+	screen_to = IsoRenderer.world_to_screen(wall.to, self.tile_draw_rect)
 	local height=height or 1
 
-	love.graphics.setColor(0, 1, 0)
-	love.graphics.polygon('line', {
+	love.graphics.setColor(wall.color)
+	love.graphics.polygon('fill', {
 		screen_from.x, screen_from.y,
 		screen_to.x, screen_to.y,
 		screen_to.x, screen_to.y - (height*self.tile_side_length),
@@ -153,7 +186,18 @@ function IsoRenderer:draw_line_on_floor(from, to)
 
 	love.graphics.setColor(0, 1, 0)
 	love.graphics.line(screen_from.x, screen_from.y, screen_to.x, screen_to.y)
+end
 
+function IsoRenderer:draw_iso_drawable(d)
+	if (d.type == "tile") then
+		self:draw_tile(d)
+	elseif (d.type == "wall") then
+		self:draw_wall(d)
+	elseif (d.type == "billboard") then
+		self:draw_billboard(d)
+	else
+		print("Can't draw " .. d .. ", doesn't look like drawable: " .. d.type)
+	end
 end
 
 function IsoRenderer:draw_world()
@@ -161,6 +205,11 @@ function IsoRenderer:draw_world()
 	-- 1st pass - ground. Draw all ground tiles in proper order: 
 	-- 2nd pass - upright tiles. Draw all upright tiles in order of their base positions down.
 	-- (intersecting polygons might get weird)
+	for depth,line in ipairs(self.depth_lines) do
+		for k,isoDrawable in ipairs(line) do
+			self:draw_iso_drawable(isoDrawable)
+		end
+	end
 end
 
 ---@param coord Coord Coordinate in tile space
@@ -172,13 +221,15 @@ function IsoRenderer.world_to_screen(coord, tile_draw_rect)
 		x = -coord.x * (tile_draw_rect.width/2) + coord.y * (tile_draw_rect.width/2),
 		y = coord.y * (tile_draw_rect.height/2) + coord.x * (tile_draw_rect.height/2)
 	}
+
 end
 
 ---@param coord Coord
 ---@param world_params WorldParams
 ---@return Coord The coordinate in tile space
 function IsoRenderer.screen_to_world(coord, world_params)
-	local tile_size = world_params.tile_size
+
+
 end
 
 return IsoRenderer
