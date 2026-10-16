@@ -58,6 +58,9 @@ function IsoRenderer:new()
 		--     \/
 		depth_lines = { },
 
+		-- Upright drawing elements, billboards and walls
+		uprights = {},
+
 		max_depth=0,
 
 		-- entity id to current depth, for changing
@@ -78,7 +81,8 @@ function IsoRenderer:new()
 
 	print("Tile side length", o.tile_side_length)
 
-	setmetatable(o, {__index = self})
+	setmetatable(o, self)
+	self.__index = self
 	return o
 end
 
@@ -146,6 +150,10 @@ function IsoRenderer:am_i_in_front_of_wall(pos, wall)
 	if (bottom.x < bottom.y) then slope = "left" end
 	]]
 
+	-- If the wall is flat (both points have same depth towards screen) then we can do simple billboard check
+	if (wall.from.x + wall.from.y == wall.to.x + wall.from.y) then
+		return pos.x + pos.y > wall.from.x + wall.from.y
+	end
 
 	-- [[ What side am I on? ]]
 	local from_vec = Vec2:New(wall.from.x, wall.from.y)
@@ -164,7 +172,7 @@ function IsoRenderer:am_i_in_front_of_wall(pos, wall)
 
 	-- TODO: always get an angle going clockwise / counterclockwise to account for how the AngleBetween fn is symmetrical (i.e. only goes up to 180)
 
-	print(math.deg(angle_0), math.deg(angle_p))
+	--print(math.deg(angle_0), math.deg(angle_p))
 
 	return angle_0 < angle_p
 
@@ -270,6 +278,7 @@ end
 
 ---@param wall Wall - Tile coord to start wall
 function IsoRenderer:draw_wall(wall)
+	print("Drawing wall: self",self, "wall",wall)
 
 	screen_from = IsoRenderer.world_to_screen(wall.from, self.tile_draw_rect)
 	screen_to = IsoRenderer.world_to_screen(wall.to, self.tile_draw_rect)
@@ -310,31 +319,49 @@ function IsoRenderer:draw_iso_drawable(d)
 	end
 end
 
+---
+function IsoRenderer:sort_uprights(uprights)
+
+	uprights = uprights or self.uprights
+
+	table.sort(uprights, function (a,b)
+
+		if (a.type == "billboard" and b.type == "wall") then
+			return IsoRenderer:am_i_in_front_of_wall(a.pos, b) == false
+		elseif (a.type == "wall" and b.type == "billboard") then
+			return IsoRenderer:am_i_in_front_of_wall(b.pos, a)
+		elseif (a.type == "billboard" and b.type == "billboard") then
+			print(a.pos.x, a.pos.y, b.pos.x, b.pos.y)
+
+			a_depth = a.pos.x + a.pos.y
+			b_depth = b.pos.x + b.pos.y
+			
+			return a_depth < b_depth
+		-- TODO: wall-wall
+		end
+
+		return false
+
+	end)
+
+	order=""
+	for k,v in pairs(uprights) do
+		order = order .. v.id .. ","
+	end
+
+end
+
 function IsoRenderer:draw_world()
 	-- In passes:
 	-- 1st pass - ground. Draw all ground tiles in proper order: 
 	-- 2nd pass - upright tiles. Draw all upright tiles in order of their base positions down.
-	-- (intersecting polygons might get weird)
-	render_order = ""
-	for depth=0,self.max_depth,1 do
-		local line = self.depth_lines[depth]
-		if (line == nil) then goto continue end
 
-		render_order = render_order..depth..","
-		
+	self:sort_uprights()
 
-		for k,tile in ipairs(line.tile) do
-			self:draw_iso_drawable(tile)
-		end
-
-		for k,billboard in ipairs(line.billboard) do
-			self:draw_iso_drawable(billboard)
-		end
-
-		::continue::
+	for k,upright in pairs(self.uprights) do
+		self:draw_iso_drawable(upright)
 	end
 
-	--print(render_order)
 end
 
 ---@param coord Coord Coordinate in tile space

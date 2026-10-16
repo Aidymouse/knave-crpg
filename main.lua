@@ -67,12 +67,24 @@ function love.load()
 	end
 
 	table.insert(loaded_objects, player.billboard)
-	table.insert(loaded_objects, Billboard:New({pos={x=6,y=6}, size={width=5, height=1}}))
-	table.insert(loaded_objects, Billboard:New({pos={x=6.5,y=9}, size={width=5, height=1}, color={0, 0, 0.5}}))
+	--table.insert(loaded_objects, Billboard:New({pos={x=6,y=6}, size={width=5, height=1}}))
+	--htable.insert(loaded_objects, Billboard:New({pos={x=6.5,y=9}, size={width=5, height=1}, color={0, 0, 0.5}}))
 
 	for k,v in ipairs(loaded_objects) do
-		renderer:update_depth(v)
+		--renderer:update_depth(v)
 	end
+
+	local wall = Wall:New({
+		from={x=1, y=1},
+		to={x=2,y=1}
+	})
+
+	table.insert(renderer.uprights, player.billboard)
+	table.insert(renderer.uprights, wall)
+	table.insert(renderer.uprights, Billboard:New({pos={x=8,y=8},size={width=5,height=2}, color={0.5,0.5,1}}))
+	
+	-- billboard equiv. wall
+	table.insert(renderer.uprights, Wall:New({ from={x=3,y=5}, to={x=5,y=3} }))
 end
 
 function love.update(dt)
@@ -101,10 +113,6 @@ function love.update(dt)
 	player.billboard.pos.x = player.billboard.pos.x + move.x * dt
 	player.billboard.pos.y = player.billboard.pos.y + move.y * dt
 
-	if (move.x ~= 0 or move.y ~= 0) then
-		renderer:update_depth(player.billboard)
-	end
-
 end
 
 
@@ -117,25 +125,7 @@ function love.draw()
 
 	renderer:draw_world()
 
-	local wall = Wall:New({
-		from={x=1, y=1},
-		to={x=2,y=1}
-	})
 
-
-
-
-	renderer:draw_wall(wall)
-
-	local f = renderer:am_i_in_front_of_wall(player.billboard.pos, wall)
-
-	love.graphics.setColor(1,0,0)
-	if (f) then
-		love.graphics.setColor(1,1,1)
-	end
-
-	local player_pos = renderer.world_to_screen(player.billboard.pos, renderer.tile_draw_rect)
-	love.graphics.circle('fill', player_pos.x, player_pos.y, 3)
 	
 
 	--renderer:draw_wall({x=1, y=1}, {x=1, y=11})
