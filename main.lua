@@ -11,7 +11,10 @@ local Tile = {
 	New = function(self, ob)
 		local o = ob or {}
 		Entity.assign_id(o);
-		setmetatable(o, {__index=self})
+		setmetatable(o, {
+			__index=self,
+			__tostring=function(t) return "["..t.id.."] Tile ("..t.pos.x..","..t.pos.y..")"  end
+		})
 		return o
 	end
 }
@@ -26,7 +29,10 @@ local Wall = {
 	New = function(self, ob)
 		local o = ob or {}
 		Entity.assign_id(o);
-		setmetatable(o, {__index=self})
+		setmetatable(o, {
+			__index=self,
+			__tostring=function(w) return "["..w.id.."] Wall ("..w.from.x..","..w.from.y..") ("..w.to.x..","..w.to.y..")" end,
+		})
 		return o
 	end
 }
@@ -42,7 +48,10 @@ local Billboard = {
 	New = function(self, ob)
 		local o = ob or {}
 		Entity.assign_id(o);
-		setmetatable(o, {__index=self})
+		setmetatable(o, {
+			__index=self,
+			__tostring=function(b) return "["..b.id.."] Billboard ("..b.pos.x..","..b.pos.y..")" end
+		})
 		return o
 	end
 }
@@ -57,22 +66,15 @@ function love.load()
 		})
 	}
 
-	loaded_objects = {
-	}
 
 	for tx=0,10,1 do
 		for ty=0,10,1 do
-			--table.insert(loaded_objects, Tile:New({pos={x=tx+0.5, y=ty+0.5}, color={0.4,0.4,0.4}}))
+
+			table.insert(renderer.tiles, Tile:New({pos={x=tx+0.5, y=ty+0.5}, color={0.4,0.4,0.4}}))
 		end
 	end
 
-	table.insert(loaded_objects, player.billboard)
-	--table.insert(loaded_objects, Billboard:New({pos={x=6,y=6}, size={width=5, height=1}}))
-	--htable.insert(loaded_objects, Billboard:New({pos={x=6.5,y=9}, size={width=5, height=1}, color={0, 0, 0.5}}))
-
-	for k,v in ipairs(loaded_objects) do
-		--renderer:update_depth(v)
-	end
+	table.insert(renderer.uprights, Wall:New({ from={x=0,y=0}, to={x=0,y=11}}))
 
 	local wall = Wall:New({
 		from={x=1, y=1},
@@ -80,7 +82,9 @@ function love.load()
 	})
 
 	table.insert(renderer.uprights, player.billboard)
+
 	table.insert(renderer.uprights, wall)
+
 	table.insert(renderer.uprights, Billboard:New({pos={x=8,y=8},size={width=5,height=2}, color={0.5,0.5,1}}))
 	
 	-- billboard equiv. wall

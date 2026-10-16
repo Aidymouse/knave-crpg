@@ -27,9 +27,11 @@ local Vec2 = require "Vec2"
 local IsoRenderer = {}
 local debug = {
 	-- Global switch
-	enabled=false,
+	enabled=true,
 	-- Tint drawn objects based on depth
 	draw_depth=false,
+	-- updated as draw calls are made, so we can see draw order on the objects themselves
+	cur_draw_counter=-1,
 }
 
 ---@alias IsoDrawable = Tile | Wall | Billboard
@@ -44,35 +46,11 @@ function IsoRenderer:new()
 		-- I.e. the dist from the middle top of the draw_rect to the middle of an edge
 		tile_side_length = 0, -- Populated below
 
-		-- Idea being objects will maintain their depth line when registered with the iso renderer. The render line is the max of the tiles X or Y, then the row is sorted itself.
-		-- We only need to sort a row if there are non-tiles in it, and we only need to sort a row where something has changed
-		-- Cos of how coods are set up it's jus the max of the tiles X or Y coord
-		-- If we have an iso grid, the horizontal line as we see from the top is depth 1
-		-- Depth 2 is the next row of tiles, etc
-		--
-		--     /\  <-- 1
-		--    /\/\ <-- 2
-		--   /\/\/\ <-- 3
-		--   \/\/\/ <-- 4
-		--    \/\/ <-- 5
-		--     \/
-		depth_lines = { },
-
 		-- Upright drawing elements, billboards and walls
 		uprights = {},
+		tiles = {},
 
-		max_depth=0,
 
-		-- entity id to current depth, for changing
-		depth_record = {
-			remove_entity = function(self, ent)
-				for k,v in ipairs(self) do
-					if k == ent.id then
-						table.remove(self, k)
-					end
-				end
-			end
-		}
 	}
 
 	local corner_width = o.tile_draw_rect.width / 2
@@ -86,48 +64,6 @@ function IsoRenderer:new()
 	return o
 end
 
----@param d IsoDrawable
--- TODO: maintain a depth cache too
-function IsoRenderer:update_depth(ent)
-	local depth = IsoRenderer.get_depth(ent)
-
-	if self.depth_record[ent.id] == depth then
-		return
-	end
-
-	if self.depth_record[ent.id] ~= nil then
-		local cur_depth = self.depth_record[ent.id]
-		self.depth_lines[cur_depth]:remove_entity(ent)
-		self.depth_record:remove_entity(ent)
-	end
-
-	if self.depth_lines[depth] == nil then
-		self.max_depth = math.max(self.max_depth, depth)
-		self.depth_lines[depth] = {
-			depth=depth,
-			billboard={},
-			wall={},
-			tile={},
-			remove_entity = function (self, ent)
-				for kb,e in ipairs(self.billboard) do if e.id == ent.id then table.remove(self.billboard, kb) return end end
-				for kw,e in ipairs(self.wall) do if e.id == ent.id then table.remove(self.wall, kw) return end end
-				for kt,e in ipairs(self.tile) do if e.id == ent.id then table.remove(self.tile, kt) return end end
-			end
-		}
-	end
-
-	table.insert(self.depth_lines[depth][ent.type], ent)
-
-	if (ent.type == "billboard") then
-		table.sort(self.depth_lines[depth][ent.type], function (a, b) return a.pos.y < b.pos.y end)
-
-		for k,v in pairs(self.depth_lines[depth][ent.type]) do
-		end
-	end
-
-	print("Adding ent "..ent.id.." ("..ent.type..") to depth "..depth)
-	self.depth_record[ent.id] = depth
-end
 
 function IsoRenderer:am_i_in_front_of_wall(pos, wall)
 	-- [[ Identify slope of wall ]]
@@ -152,7 +88,7 @@ function IsoRenderer:am_i_in_front_of_wall(pos, wall)
 
 	-- If the wall is flat (both points have same depth towards screen) then we can do simple billboard check
 	if (wall.from.x + wall.from.y == wall.to.x + wall.from.y) then
-		return pos.x + pos.y > wall.from.x + wall.from.y
+		return pos.x + pos.y < wall.from.x + wall.from.y
 	end
 
 	-- [[ What side am I on? ]]
@@ -271,6 +207,9 @@ function IsoRenderer:draw_billboard(billboard)
 	if debug.enabled then
 		love.graphics.setColor(0.6, 0, 0)
 		love.graphics.circle('fill', screen_pos.x, screen_pos.y, 2)
+
+		love.graphics.setColor(0.8,0.8,0.8)
+		love.graphics.print(debug.cur_draw_counter, screen_pos.x-screen_width/2, screen_pos.y - 15)
 	end
 
 end
@@ -278,8 +217,6 @@ end
 
 ---@param wall Wall - Tile coord to start wall
 function IsoRenderer:draw_wall(wall)
-	print("Drawing wall: self",self, "wall",wall)
-
 	screen_from = IsoRenderer.world_to_screen(wall.from, self.tile_draw_rect)
 	screen_to = IsoRenderer.world_to_screen(wall.to, self.tile_draw_rect)
 	local height=height or 1
@@ -296,6 +233,9 @@ function IsoRenderer:draw_wall(wall)
 		love.graphics.circle('fill', screen_from.x, screen_from.y, 2)
 		love.graphics.setColor(0, 0.6, 0)
 		love.graphics.circle('fill', screen_to.x, screen_to.y, 2)
+
+		love.graphics.setColor(0.8,0.8,0.8)
+		love.graphics.print(debug.cur_draw_counter, screen_from.x, screen_from.y - 15)
 	end
 end
 
@@ -331,13 +271,20 @@ function IsoRenderer:sort_uprights(uprights)
 		elseif (a.type == "wall" and b.type == "billboard") then
 			return IsoRenderer:am_i_in_front_of_wall(b.pos, a)
 		elseif (a.type == "billboard" and b.type == "billboard") then
-			print(a.pos.x, a.pos.y, b.pos.x, b.pos.y)
-
 			a_depth = a.pos.x + a.pos.y
 			b_depth = b.pos.x + b.pos.y
 			
 			return a_depth < b_depth
-		-- TODO: wall-wall
+		elseif (a.type == "wall" and b.type == "wall") then
+			local top = a.from
+			if (a.to.x + a.to.y < a.from.x + a.from.y) then
+				top = a.to
+			end
+			local in_front = IsoRenderer:am_i_in_front_of_wall(top, b)
+
+			print(a,b,in_front)
+
+			return in_front == false
 		end
 
 		return false
@@ -355,11 +302,15 @@ function IsoRenderer:draw_world()
 	-- In passes:
 	-- 1st pass - ground. Draw all ground tiles in proper order: 
 	-- 2nd pass - upright tiles. Draw all upright tiles in order of their base positions down.
+	for k,tile in pairs(self.tiles) do
+		self:draw_tile(tile)
+	end
 
 	self:sort_uprights()
 
 	for k,upright in pairs(self.uprights) do
-		self:draw_iso_drawable(upright)
+		debug.cur_draw_counter=k
+		self:draw_iso_drawable(upright,k)
 	end
 
 end
