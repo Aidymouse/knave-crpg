@@ -4,6 +4,7 @@ local Entity = require 'Entity'
 local Vec2 = require 'Vec2'
 local Wall = require 'Wall'
 local Billboard = require 'Billboard'
+local List = require 'List'
 
 ---@class Tile
 local Tile = {
@@ -25,13 +26,6 @@ local Tile = {
 
 function love.load()
 
-	local up = Vec2:New(-1, -1)
-	local left = Vec2:New(1, 0)
-	local right = Vec2:New(0, 1)
-
-	print("Angle To Left: "..Vec2.AngleBetween(up, left))
-	print("Angle To Right: "..Vec2.AngleBetween(up, right))
-
 	renderer = IsoRenderer:new()
 
 	player = {
@@ -43,7 +37,6 @@ function love.load()
 
 	for tx=0,10,1 do
 		for ty=0,10,1 do
-
 			table.insert(renderer.tiles, Tile:New({pos={x=tx+0.5, y=ty+0.5}, color={0.6,0.6,0.6}}))
 		end
 	end
@@ -58,6 +51,8 @@ function love.load()
 	
 	-- billboard equiv. wall
 	--table.insert(renderer.uprights, Wall:New({ from={x=3,y=5}, to={x=5,y=3} }))
+	
+
 end
 
 function love.update(dt)

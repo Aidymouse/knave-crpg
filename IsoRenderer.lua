@@ -59,13 +59,12 @@ function IsoRenderer:new()
 	local corner_height = o.tile_draw_rect.height / 2
 	o.tile_side_length = math.sqrt(corner_width * corner_width + corner_height * corner_height)
 
-	print("Tile side length", o.tile_side_length)
-
 	setmetatable(o, self)
 	self.__index = self
 	return o
 end
 
+--- Takes a wall object and gets a {left, right, up, down} table based on the points position in screen space
 function get_norm_wall(wall, draw_rect)
 	local screen_from = IsoRenderer.world_to_screen(wall.from, draw_rect)
 	local screen_to = IsoRenderer.world_to_screen(wall.to, draw_rect)
@@ -91,60 +90,6 @@ function get_norm_wall(wall, draw_rect)
 end
 
 
----@return true if the position is in the front of the wall (e.g. should be drawn first in isometric context)
-function IsoRenderer:am_i_in_front_of_wall(pos, wall)
-
-	local pos_depth = pos.x + pos.y
-
-	if (wall.from.x + wall.from.y == wall.to.x + wall.to.y) then
-		return pos_depth > wall.from.x + wall.from.y
-	end
-
-
-	local norm = get_norm_wall(wall, self.tile_draw_rect)
-	local top = norm.top
-	local bottom = norm.bottom
-
-	local screen_pos = IsoRenderer.world_to_screen(pos, self.tile_draw_rect)
-	local screen_top = IsoRenderer.world_to_screen(top, self.tile_draw_rect)
-	local screen_bottom = IsoRenderer.world_to_screen(bottom, self.tile_draw_rect)
-
-	local sv_pos = Vec2:New(screen_pos.x, screen_pos.y)
-	local sv_top = Vec2:New(screen_top.x, screen_top.y)
-	local sv_bottom = Vec2:New(screen_bottom.x, screen_bottom.y)
-
-	local sv_wall = sv_top - sv_bottom
-	sv_wall:Draw(sv_top)
-	local pos_to_top = sv_top - sv_pos
-	pos_to_top:Draw(sv_top)
-
-
-	local top_depth = top.x + top.y
-	local bottom_depth = bottom.x + bottom.y
-
-	--print(pos_depth, top_depth, bottom_depth)
-
-	if (pos_depth < top_depth) then return false end
-	if (pos_depth > bottom_depth) then return true end
-
-	-- [[ What side am I on? ]]
-	local top_as_vec = Vec2:New(top.x, top.y)
-	local bottom_as_vec = Vec2:New(bottom.x, bottom.y)
-	local pos_as_vec = Vec2:New(pos.x, pos.y)
-	local wall_vec = top_as_vec - bottom_as_vec
-	local wall_to_p_vec = top_as_vec - pos_as_vec
-
-	local angle = wall_vec:AngleBetween(wall_to_p_vec)
-
-	if (sv_bottom.x > sv_top.x) then
-		return angle < 0
-	end
-
-	return angle > 0
-
-	
-
-end
 
 ---@param tile Tile
 function IsoRenderer:draw_tile(tile)
@@ -269,6 +214,44 @@ function IsoRenderer:draw_iso_drawable(d)
 	end
 end
 
+function IsoRenderer:draw_world()
+	-- In passes:
+	-- 1st pass - ground. Draw all ground tiles in proper order: 
+	-- 2nd pass - upright tiles. Draw all upright tiles in order of their base positions down.
+	for k,tile in pairs(self.tiles) do
+		self:draw_tile(tile)
+	end
+
+	--self:sort_uprights()
+
+	for k,upright in pairs(self.uprights) do
+		debug.cur_draw_counter=k
+		self:draw_iso_drawable(upright,k)
+	end
+
+end
+
+---@param coord Coord Coordinate in tile space
+---@param world_params Coord Coordinate in tile space
+---@return Coord The coordinate in screen space
+function IsoRenderer.world_to_screen(coord, tile_draw_rect)
+
+	return {
+		x = -coord.x * (tile_draw_rect.width/2) + coord.y * (tile_draw_rect.width/2),
+		y = coord.y * (tile_draw_rect.height/2) + coord.x * (tile_draw_rect.height/2)
+	}
+
+end
+
+---@param coord Coord
+---@param world_params WorldParams
+---@return Coord The coordinate in tile space
+function IsoRenderer.screen_to_world(coord, world_params)
+
+
+end
+
+--[[
 function IsoRenderer:sort_uprights(uprights)
 
 	uprights = uprights or self.uprights
@@ -278,10 +261,6 @@ function IsoRenderer:sort_uprights(uprights)
 	table.sort(uprights, function (a,b)
 
 		sorts = sorts + 1
-
-		local s = ""
-		for k,v in pairs(uprights) do s = s..v.id..", " end
-		print(s)
 
 		if (a.type == "billboard" and b.type == "wall") then
 			local in_front = self:am_i_in_front_of_wall(a.pos, b)
@@ -318,49 +297,121 @@ function IsoRenderer:sort_uprights(uprights)
 	love.graphics.setColor(1, 0, 1)
 	love.graphics.print(sorts, 0, 0)
 
-	--[[
-	order=""
-	for k,v in pairs(uprights) do
-		order = order .. v.id .. ","
+
+end
+]]
+
+---@return true if the position is in the front of the wall (e.g. should be drawn first in isometric context)
+function IsoRenderer:am_i_in_front_of_wall(pos, wall)
+
+	local pos_depth = pos.x + pos.y
+
+	if (wall.from.x + wall.from.y == wall.to.x + wall.to.y) then
+		return pos_depth > wall.from.x + wall.from.y
 	end
+
+
+	local norm = get_norm_wall(wall, self.tile_draw_rect)
+	local top = norm.top
+	local bottom = norm.bottom
+
+	local screen_pos = IsoRenderer.world_to_screen(pos, self.tile_draw_rect)
+
+	--[[
+	local sv_pos = Vec2:New(screen_pos.x, screen_pos.y)
+
+	local sv_wall = sv_top - sv_bottom
+	sv_wall:Draw(sv_top)
+	local pos_to_top = sv_top - sv_pos
+	pos_to_top:Draw(sv_top)
 	]]
 
-end
+	local top_depth = top.x + top.y
+	local bottom_depth = bottom.x + bottom.y
 
-function IsoRenderer:draw_world()
-	-- In passes:
-	-- 1st pass - ground. Draw all ground tiles in proper order: 
-	-- 2nd pass - upright tiles. Draw all upright tiles in order of their base positions down.
-	for k,tile in pairs(self.tiles) do
-		self:draw_tile(tile)
+	--print(pos_depth, top_depth, bottom_depth)
+
+	if (pos_depth < top_depth) then return false end
+	if (pos_depth > bottom_depth) then return true end
+
+	-- [[ What side am I on? ]]
+	local top_as_vec = Vec2:New(top.x, top.y)
+	local bottom_as_vec = Vec2:New(bottom.x, bottom.y)
+	local pos_as_vec = Vec2:New(pos.x, pos.y)
+	local wall_vec = top_as_vec - bottom_as_vec
+	local wall_to_p_vec = top_as_vec - pos_as_vec
+
+	local angle = wall_vec:AngleBetween(wall_to_p_vec)
+
+	local sv_top = Vec2:New(IsoRenderer.world_to_screen(top, self.tile_draw_rect))
+	local sv_bottom = Vec2:New(IsoRenderer.world_to_screen(bottom, self.tile_draw_rect))
+
+	if (sv_bottom.x > sv_top.x) then
+		return angle < 0
 	end
 
-	self:sort_uprights()
-
-	for k,upright in pairs(self.uprights) do
-		debug.cur_draw_counter=k
-		self:draw_iso_drawable(upright,k)
-	end
+	return angle > 0
 
 end
 
----@param coord Coord Coordinate in tile space
----@param world_params Coord Coordinate in tile space
----@return Coord The coordinate in screen space
-function IsoRenderer.world_to_screen(coord, tile_draw_rect)
+--- Creates a dependency graph. Each node points at nodes it must be drawn before. Essentially if you draw X, you're then safe to visit another node off of X and draw it
+function IsoRenderer:construct_dependency_graph()
+	local graph = {}
 
-	return {
-		x = -coord.x * (tile_draw_rect.width/2) + coord.y * (tile_draw_rect.width/2),
-		y = coord.y * (tile_draw_rect.height/2) + coord.x * (tile_draw_rect.height/2)
+	--- Functions of type to type. Functions return true if outer type must be rendered before obj of inner type
+	local dependency_checks = {
+		billboard = {
+			billboard = function (b, b2) return b.pos.x + b.pos.y < b2.pos.x + b2.pos.y end,
+			wall = function (b, w) return self:am_i_in_front_of_wall(b.pos, w) == false end
+		},
+		wall = {
+			billboard = function (w, b) return self:am_i_in_front_of_wall(b.pos, w) end,
+			wall = function(w, w2) return self:am_i_in_front_of_wall(get_norm_wall(w, self.tile_draw_rect).top, w2) end
+		}
 	}
 
+
+	for k, upright in pairs(self.uprights) do
+		graph[upright.id] = {
+			down={},
+			up={}
+		}
+	end
+
+	for k,upright in pairs(self.uprights) do
+		for k2,check in pairs(self.uprights) do
+			if upright.id == check.id then goto continue end
+
+			if (dependency_checks[upright.type][check.type](upright, check)) then
+				table.insert(graph[upright.id].down, check.id)
+				table.insert(graph[check.id].up, upright.id)
+			end
+
+			::continue::
+		end
+	end
+
+	for id,dependencies in pairs(graph) do
+		s = "["
+		for idx,depId in pairs(dependencies.up) do
+			s = s .. depId .. ", "
+		end
+		s = s.."] "..id..": "
+		for idx,depId in pairs(dependencies.down) do
+			s = s .. depId .. ", "
+		end
+		print(s)
+	end
+
+	
 end
 
----@param coord Coord
----@param world_params WorldParams
----@return Coord The coordinate in tile space
-function IsoRenderer.screen_to_world(coord, world_params)
+function IsoRenderer:draw_from_graph()
+	local depGraph = self:construct_dependency_graph()
 
+	local visited = {}
+
+	
 
 end
 
