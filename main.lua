@@ -1,6 +1,9 @@
 local IsoRenderer = require 'IsoRenderer'
 
 local Entity = require 'Entity'
+local Vec2 = require 'Vec2'
+local Wall = require 'Wall'
+local Billboard = require 'Billboard'
 
 ---@class Tile
 local Tile = {
@@ -19,44 +22,16 @@ local Tile = {
 	end
 }
 
----@class Wall
-local Wall = {
-	type="wall",
-	from = {x=0, y=0},
-	to = {x=0,y=0},
-	height = 1,
-	color = {1,1,1},
-	New = function(self, ob)
-		local o = ob or {}
-		Entity.assign_id(o);
-		setmetatable(o, {
-			__index=self,
-			__tostring=function(w) return "["..w.id.."] Wall ("..w.from.x..","..w.from.y..") ("..w.to.x..","..w.to.y..")" end,
-		})
-		return o
-	end
-}
-
----@class Billboard
----@field pos WorldCoord
-local Billboard = {
-	type="billboard",
-	pos = {x = 0, y=0},
-	size = {width=1, height=1},
-	color = {1,1,1},
-
-	New = function(self, ob)
-		local o = ob or {}
-		Entity.assign_id(o);
-		setmetatable(o, {
-			__index=self,
-			__tostring=function(b) return "["..b.id.."] Billboard ("..b.pos.x..","..b.pos.y..")" end
-		})
-		return o
-	end
-}
 
 function love.load()
+
+	local up = Vec2:New(-1, -1)
+	local left = Vec2:New(1, 0)
+	local right = Vec2:New(0, 1)
+
+	print("Angle To Left: "..Vec2.AngleBetween(up, left))
+	print("Angle To Right: "..Vec2.AngleBetween(up, right))
+
 	renderer = IsoRenderer:new()
 
 	player = {
@@ -66,29 +41,23 @@ function love.load()
 		})
 	}
 
-
 	for tx=0,10,1 do
 		for ty=0,10,1 do
 
-			table.insert(renderer.tiles, Tile:New({pos={x=tx+0.5, y=ty+0.5}, color={0.4,0.4,0.4}}))
+			table.insert(renderer.tiles, Tile:New({pos={x=tx+0.5, y=ty+0.5}, color={0.6,0.6,0.6}}))
 		end
 	end
 
-	table.insert(renderer.uprights, Wall:New({ from={x=0,y=0}, to={x=0,y=11}}))
-
-	local wall = Wall:New({
-		from={x=1, y=1},
-		to={x=2,y=1}
-	})
+	table.insert(renderer.uprights, Wall:New({from={x=0,y=0}, to={x=0,y=11}, color={0.8,0.8,0.8}, height=1}))
+	table.insert(renderer.uprights, Wall:New({from={x=0.1,y=0.1}, to={x=11,y=0}, color={0.7,0.7,0.7}, height=1}))
 
 	table.insert(renderer.uprights, player.billboard)
-
-	table.insert(renderer.uprights, wall)
-
+	--table.insert(renderer.uprights, Wall:New({from={x=1,y=1}, to={x=2,y=1}, color={0,0.5,0}}))
+	--table.insert(renderer.uprights, Wall:New({from={x=2,y=3}, to={x=2,y=5}}))
 	table.insert(renderer.uprights, Billboard:New({pos={x=8,y=8},size={width=5,height=2}, color={0.5,0.5,1}}))
 	
 	-- billboard equiv. wall
-	table.insert(renderer.uprights, Wall:New({ from={x=3,y=5}, to={x=5,y=3} }))
+	--table.insert(renderer.uprights, Wall:New({ from={x=3,y=5}, to={x=5,y=3} }))
 end
 
 function love.update(dt)
@@ -119,9 +88,6 @@ function love.update(dt)
 
 end
 
-
-local Vec2 = require "Vec2"
-
 function love.draw()
 
 	love.graphics.translate(400, 50)
@@ -130,14 +96,30 @@ function love.draw()
 	renderer:draw_world()
 
 
+
+	--[[ Vector Tests
+
+	local world_up = renderer.world_to_screen({x=-1, y=-1}, renderer.tile_draw_rect)
+	local screen_up = Vec2:New(world_up.x, world_up.y)
+
+	screen_up:Draw()
+	
+	local screen_player = IsoRenderer.world_to_screen(player.billboard.pos, renderer.tile_draw_rect)
+	local p_vec = Vec2:New(screen_player.x, screen_player.y)
+	
+	love.graphics.setColor(1, 0, 0)
+	p_vec:Draw()
+
+	local angle = p_vec:AngleBetween(screen_up)
+	print(angle)
+
+	local up = Vec2:New(0, -1) * 50
+	love.graphics.setColor(1, 1, 1)
+	up:Draw()
 	
 
-	--renderer:draw_wall({x=1, y=1}, {x=1, y=11})
-	--renderer:draw_wall({x=1, y=1}, {x=11, y=1})
-
-	--renderer:draw_wall({x=0, y=0}, {x=0, y=1}, 1)
-	--renderer:draw_wall({x=1, y=0}, {x=0, y=1}, 1)
-
-
+	local angle = p_vec:AngleBetween(up)
+	love.graphics.print(math.deg(angle), p_vec.x, p_vec.y)
+	]]
 
 end

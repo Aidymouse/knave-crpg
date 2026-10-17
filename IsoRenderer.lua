@@ -32,6 +32,8 @@ local debug = {
 	draw_depth=false,
 	-- updated as draw calls are made, so we can see draw order on the objects themselves
 	cur_draw_counter=-1,
+	-- draw mode for all iso drawables
+	draw_mode="fill",
 }
 
 ---@alias IsoDrawable = Tile | Wall | Billboard
@@ -64,79 +66,84 @@ function IsoRenderer:new()
 	return o
 end
 
+function get_norm_wall(wall, draw_rect)
+	local screen_from = IsoRenderer.world_to_screen(wall.from, draw_rect)
+	local screen_to = IsoRenderer.world_to_screen(wall.to, draw_rect)
 
-function IsoRenderer:am_i_in_front_of_wall(pos, wall)
-	-- [[ Identify slope of wall ]]
-	--[[
-	local slope = "right"
+	local bottom=wall.to
+	local top=wall.from
 
-	-- depth basically = screen Y
-	local screen_from = IsoRenderer.screen_to_world(wall.from, self.tile_draw_rect)
-	local screen_to = IsoRenderer.screen_to_world(wall.to, self.tile_draw_rect)
-
-	if (screen_from.y == screen_to.y) then slope = "flat" end
-	-- TODO: what if wall is straight up and down
-	local top = screen_from
-	local bottom = screen_to
-	if (screen_to.y < screen_from.y) then
-		top = screen_to
-		bottom = screen_from
+	if (screen_from.y > screen_to.y) then
+			bottom=wall.from
+			top=wall.to
 	end
 
-	if (bottom.x < bottom.y) then slope = "left" end
-	]]
+	local left=wall.to
+	local right=wall.from
 
-	-- If the wall is flat (both points have same depth towards screen) then we can do simple billboard check
-	if (wall.from.x + wall.from.y == wall.to.x + wall.from.y) then
-		return pos.x + pos.y < wall.from.x + wall.from.y
+	if (screen_from.x < screen_to.x) then
+		left = wall.from
+		right = wall.to
 	end
 
-	-- [[ What side am I on? ]]
-	local from_vec = Vec2:New(wall.from.x, wall.from.y)
-	local to_vec = Vec2:New(wall.to.x, wall.to.y)
-	local p_vec = Vec2:New(pos.x, pos.y)
-
-	local wall_vec = from_vec - to_vec
-	local wall_to_p_vec = from_vec - p_vec
-
-
-	-- screen space straight up 
-	local up_vec = Vec2:New(-1, -1)
-
-	local angle_0 = wall_vec:AngleBetween(up_vec)
-	local angle_p = wall_to_p_vec:AngleBetween(up_vec)
-
-	-- TODO: always get an angle going clockwise / counterclockwise to account for how the AngleBetween fn is symmetrical (i.e. only goes up to 180)
-
-	--print(math.deg(angle_0), math.deg(angle_p))
-
-	return angle_0 < angle_p
-
-	-- 1. Get an angle of the wall to 0, 0 (top of screen)
-	-- 2. Get angle to point to 0, 0
-	-- 3. If angle 2 > angle 1, in front. Otherwise, behind
-	-- 4. If angle is equal (or just about equal), then check walls other point.
-	
-
-	-- TODO: one day, I could get REALLY fancy with it, and break all lines up such that intersections become split line segments, so even intersecting walls would work. Wow
-	
+	return { left=left, right=right, top=top, bottom=bottom }
 
 end
 
 
-function IsoRenderer.get_depth(d)
-	if (d.type == "tile") then
-		local depth = math.floor(d.pos.x)+math.floor(d.pos.y)
-		return depth
-	elseif (d.type == "billboard") then
+---@return true if the position is in the front of the wall (e.g. should be drawn first in isometric context)
+function IsoRenderer:am_i_in_front_of_wall(pos, wall)
 
-		-- If we *cross* any depth lines, we need to be on higher depth
+	local pos_depth = pos.x + pos.y
 
-		local depth = math.max(math.floor(d.pos.y)+math.floor(d.pos.x)) + 1
-		return depth
+	if (wall.from.x + wall.from.y == wall.to.x + wall.to.y) then
+		return pos_depth > wall.from.x + wall.from.y
 	end
 
-	return -1
+
+	local norm = get_norm_wall(wall, self.tile_draw_rect)
+	local top = norm.top
+	local bottom = norm.bottom
+
+	local screen_pos = IsoRenderer.world_to_screen(pos, self.tile_draw_rect)
+	local screen_top = IsoRenderer.world_to_screen(top, self.tile_draw_rect)
+	local screen_bottom = IsoRenderer.world_to_screen(bottom, self.tile_draw_rect)
+
+	local sv_pos = Vec2:New(screen_pos.x, screen_pos.y)
+	local sv_top = Vec2:New(screen_top.x, screen_top.y)
+	local sv_bottom = Vec2:New(screen_bottom.x, screen_bottom.y)
+
+	local sv_wall = sv_top - sv_bottom
+	sv_wall:Draw(sv_top)
+	local pos_to_top = sv_top - sv_pos
+	pos_to_top:Draw(sv_top)
+
+
+	local top_depth = top.x + top.y
+	local bottom_depth = bottom.x + bottom.y
+
+	--print(pos_depth, top_depth, bottom_depth)
+
+	if (pos_depth < top_depth) then return false end
+	if (pos_depth > bottom_depth) then return true end
+
+	-- [[ What side am I on? ]]
+	local top_as_vec = Vec2:New(top.x, top.y)
+	local bottom_as_vec = Vec2:New(bottom.x, bottom.y)
+	local pos_as_vec = Vec2:New(pos.x, pos.y)
+	local wall_vec = top_as_vec - bottom_as_vec
+	local wall_to_p_vec = top_as_vec - pos_as_vec
+
+	local angle = wall_vec:AngleBetween(wall_to_p_vec)
+
+	if (sv_bottom.x > sv_top.x) then
+		return angle < 0
+	end
+
+	return angle > 0
+
+	
+
 end
 
 ---@param tile Tile
@@ -150,7 +157,7 @@ function IsoRenderer:draw_tile(tile)
 	love.graphics.setColor(tile.color)
 
 	-- Only works for squares
-	love.graphics.polygon('fill', {
+	love.graphics.polygon(debug.draw_mode, {
 		screen_coord.x - (screen_width/2), screen_coord.y,
 		screen_coord.x, screen_coord.y - (screen_height/2),
 		screen_coord.x + (screen_width/2), screen_coord.y,
@@ -176,7 +183,7 @@ function IsoRenderer:draw_rect(center_coord, width, height)
 	left = IsoRenderer.world_to_screen({x=center_coord.x + width/2, y=center_coord.y - height/2}, self.tile_draw_rect)
 
 	love.graphics.setColor(1, 0, 1)
-	love.graphics.polygon('line', {
+	love.graphics.polygon(debug.draw_modee, {
 		top.x, top.y,
 		right.x, right.y,
 		bottom.x, bottom.y,
@@ -202,13 +209,13 @@ function IsoRenderer:draw_billboard(billboard)
 	screen_pos = IsoRenderer.world_to_screen(billboard.pos, self.tile_draw_rect)
 
 	love.graphics.setColor(billboard.color)
-	love.graphics.rectangle('fill', screen_pos.x-screen_width/2, screen_pos.y-screen_height, screen_width, screen_height)
+	love.graphics.rectangle(debug.draw_mode, screen_pos.x-screen_width/2, screen_pos.y-screen_height, screen_width, screen_height)
 
 	if debug.enabled then
 		love.graphics.setColor(0.6, 0, 0)
 		love.graphics.circle('fill', screen_pos.x, screen_pos.y, 2)
 
-		love.graphics.setColor(0.8,0.8,0.8)
+		love.graphics.setColor(0,0,0)
 		love.graphics.print(debug.cur_draw_counter, screen_pos.x-screen_width/2, screen_pos.y - 15)
 	end
 
@@ -219,10 +226,10 @@ end
 function IsoRenderer:draw_wall(wall)
 	screen_from = IsoRenderer.world_to_screen(wall.from, self.tile_draw_rect)
 	screen_to = IsoRenderer.world_to_screen(wall.to, self.tile_draw_rect)
-	local height=height or 1
+	local height=wall.height
 
 	love.graphics.setColor(wall.color)
-	love.graphics.polygon('fill', {
+	love.graphics.polygon(debug.draw_mode, {
 		screen_from.x, screen_from.y,
 		screen_to.x, screen_to.y,
 		screen_to.x, screen_to.y - (height*self.tile_side_length),
@@ -234,8 +241,11 @@ function IsoRenderer:draw_wall(wall)
 		love.graphics.setColor(0, 0.6, 0)
 		love.graphics.circle('fill', screen_to.x, screen_to.y, 2)
 
-		love.graphics.setColor(0.8,0.8,0.8)
-		love.graphics.print(debug.cur_draw_counter, screen_from.x, screen_from.y - 15)
+		love.graphics.setColor(1, 1, 1)
+		love.graphics.circle('fill', screen_to.x, screen_to.y-7, 10)
+		love.graphics.setColor(0,0,0)
+		love.graphics.print(debug.cur_draw_counter, screen_to.x, screen_to.y - 15)
+
 	end
 end
 
@@ -259,30 +269,44 @@ function IsoRenderer:draw_iso_drawable(d)
 	end
 end
 
----
 function IsoRenderer:sort_uprights(uprights)
 
 	uprights = uprights or self.uprights
 
+	local sorts = 0
+
 	table.sort(uprights, function (a,b)
 
+		sorts = sorts + 1
+
+		local s = ""
+		for k,v in pairs(uprights) do s = s..v.id..", " end
+		print(s)
+
 		if (a.type == "billboard" and b.type == "wall") then
-			return IsoRenderer:am_i_in_front_of_wall(a.pos, b) == false
+			local in_front = self:am_i_in_front_of_wall(a.pos, b)
+			return in_front == false
 		elseif (a.type == "wall" and b.type == "billboard") then
-			return IsoRenderer:am_i_in_front_of_wall(b.pos, a)
+			return self:am_i_in_front_of_wall(b.pos, a)
+
 		elseif (a.type == "billboard" and b.type == "billboard") then
 			a_depth = a.pos.x + a.pos.y
 			b_depth = b.pos.x + b.pos.y
 			
 			return a_depth < b_depth
-		elseif (a.type == "wall" and b.type == "wall") then
-			local top = a.from
-			if (a.to.x + a.to.y < a.from.x + a.from.y) then
-				top = a.to
-			end
-			local in_front = IsoRenderer:am_i_in_front_of_wall(top, b)
 
-			print(a,b,in_front)
+		elseif (a.type == "wall" and b.type == "wall") then
+
+			local a_norm = get_norm_wall(a, self.tile_draw_rect)
+			local b_norm = get_norm_wall(b, self.tile_draw_rect)
+
+			local top = a_norm.top
+
+			if (b_norm.top.x == top.x and b_norm.top.y == top.y) then
+				return a_norm.left.x > b_norm.left.x
+			end
+
+			local in_front = self:am_i_in_front_of_wall(top, b)
 
 			return in_front == false
 		end
@@ -291,10 +315,15 @@ function IsoRenderer:sort_uprights(uprights)
 
 	end)
 
+	love.graphics.setColor(1, 0, 1)
+	love.graphics.print(sorts, 0, 0)
+
+	--[[
 	order=""
 	for k,v in pairs(uprights) do
 		order = order .. v.id .. ","
 	end
+	]]
 
 end
 
