@@ -10,6 +10,15 @@ function List:New()
 	return o
 end
 
+function List:__tostring(l)
+	local s = "["
+	for k,v in ipairs(self.items) do
+		s = s .. v
+		if (k < #self.items) then s = s .. ", " end
+	end
+	return s .. "]"
+end
+
 --- Pushes items onto the list
 function List:Push(item)
 	table.insert(self.items, item)

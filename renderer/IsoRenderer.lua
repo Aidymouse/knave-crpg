@@ -23,6 +23,7 @@
 --]]
 
 local Vec2 = require "lib.Vec2"
+local List = require "lib.List"
 
 local IsoRenderer = {}
 local debug = {
@@ -34,11 +35,13 @@ local debug = {
 	cur_draw_counter=-1,
 	-- draw mode for all iso drawables
 	draw_mode="fill",
+	-- render objects with their ID beneath the anchor dot
+	draw_ids=true
 }
 
 ---@alias IsoDrawable = Tile | Wall | Billboard
 
-function IsoRenderer:new()
+function IsoRenderer:New()
 	local o = {
 		-- The screen-size rectangle that controls how we draw tiles
 		tile_draw_rect = { width = 40, height = 40*0.5 },
@@ -160,7 +163,7 @@ function IsoRenderer:draw_billboard(billboard)
 		love.graphics.setColor(0.6, 0, 0)
 		love.graphics.circle('fill', screen_pos.x, screen_pos.y, 2)
 
-		love.graphics.setColor(0,0,0)
+		love.graphics.setColor(1,0,0)
 		love.graphics.print(debug.cur_draw_counter, screen_pos.x-screen_width/2, screen_pos.y - 15)
 	end
 
@@ -188,8 +191,13 @@ function IsoRenderer:draw_wall(wall)
 
 		love.graphics.setColor(1, 1, 1)
 		love.graphics.circle('fill', screen_to.x, screen_to.y-7, 10)
-		love.graphics.setColor(0,0,0)
+		love.graphics.setColor(1,0,0)
 		love.graphics.print(debug.cur_draw_counter, screen_to.x, screen_to.y - 15)
+
+		if (debug.draw_ids) then
+		love.graphics.setColor(0,0,1)
+			love.graphics.print(wall.id, screen_to.x-7, screen_to.y - 15)
+		end
 
 	end
 end
@@ -237,7 +245,7 @@ end
 function IsoRenderer.world_to_screen(coord, tile_draw_rect)
 
 	return {
-		x = -coord.x * (tile_draw_rect.width/2) + coord.y * (tile_draw_rect.width/2),
+		x = coord.x * (tile_draw_rect.width/2) - coord.y * (tile_draw_rect.width/2),
 		y = coord.y * (tile_draw_rect.height/2) + coord.x * (tile_draw_rect.height/2)
 	}
 
@@ -251,56 +259,6 @@ function IsoRenderer.screen_to_world(coord, world_params)
 
 end
 
---[[
-function IsoRenderer:sort_uprights(uprights)
-
-	uprights = uprights or self.uprights
-
-	local sorts = 0
-
-	table.sort(uprights, function (a,b)
-
-		sorts = sorts + 1
-
-		if (a.type == "billboard" and b.type == "wall") then
-			local in_front = self:am_i_in_front_of_wall(a.pos, b)
-			return in_front == false
-		elseif (a.type == "wall" and b.type == "billboard") then
-			return self:am_i_in_front_of_wall(b.pos, a)
-
-		elseif (a.type == "billboard" and b.type == "billboard") then
-			a_depth = a.pos.x + a.pos.y
-			b_depth = b.pos.x + b.pos.y
-			
-			return a_depth < b_depth
-
-		elseif (a.type == "wall" and b.type == "wall") then
-
-			local a_norm = get_norm_wall(a, self.tile_draw_rect)
-			local b_norm = get_norm_wall(b, self.tile_draw_rect)
-
-			local top = a_norm.top
-
-			if (b_norm.top.x == top.x and b_norm.top.y == top.y) then
-				return a_norm.left.x > b_norm.left.x
-			end
-
-			local in_front = self:am_i_in_front_of_wall(top, b)
-
-			return in_front == false
-		end
-
-		return false
-
-	end)
-
-	love.graphics.setColor(1, 0, 1)
-	love.graphics.print(sorts, 0, 0)
-
-
-end
-]]
-
 ---@return true if the position is in the front of the wall (e.g. should be drawn first in isometric context)
 function IsoRenderer:am_i_in_front_of_wall(pos, wall)
 
@@ -309,7 +267,6 @@ function IsoRenderer:am_i_in_front_of_wall(pos, wall)
 	if (wall.from.x + wall.from.y == wall.to.x + wall.to.y) then
 		return pos_depth > wall.from.x + wall.from.y
 	end
-
 
 	local norm = get_norm_wall(wall, self.tile_draw_rect)
 	local top = norm.top
@@ -347,6 +304,10 @@ function IsoRenderer:am_i_in_front_of_wall(pos, wall)
 	local sv_bottom = Vec2:New(IsoRenderer.world_to_screen(bottom, self.tile_draw_rect))
 
 	if (sv_bottom.x > sv_top.x) then
+		return angle > 0
+	end
+
+	if (sv_bottom.y > sv_top.y) then
 		return angle < 0
 	end
 
@@ -355,10 +316,11 @@ function IsoRenderer:am_i_in_front_of_wall(pos, wall)
 end
 
 --- Creates a dependency graph. Each node points at nodes it must be drawn before. Essentially if you draw X, you're then safe to visit another node off of X and draw it
-function IsoRenderer:construct_dependency_graph()
+function IsoRenderer:construct_dependency_graph(world_data)
 	local graph = {}
 
-	--- Functions of type to type. Functions return true if outer type must be rendered before obj of inner type
+	--- Functions of type to type. Functions return true if outer type must be rendered BEFORE obj of inner type
+	--- E.g. billboard.wall returns true if billboard should be rendered first
 	local dependency_checks = {
 		billboard = {
 			billboard = function (b, b2) return b.pos.x + b.pos.y < b2.pos.x + b2.pos.y end,
@@ -366,20 +328,47 @@ function IsoRenderer:construct_dependency_graph()
 		},
 		wall = {
 			billboard = function (w, b) return self:am_i_in_front_of_wall(b.pos, w) end,
-			wall = function(w, w2) return self:am_i_in_front_of_wall(get_norm_wall(w, self.tile_draw_rect).top, w2) end
+			wall = function(w, w2) 
+				local norm_w = get_norm_wall(w, self.tile_draw_rect)
+				local norm_w2 = get_norm_wall(w2, self.tile_draw_rect)
+
+				-- If two walls are on the same spot, just favour the leftmost one
+				if (norm_w.top.y == norm_w2.top.y and norm_w.top.x == norm_w2.top.x) then
+					print(Vec2:New(norm_w.left), Vec2:New(norm_w2.left))
+					local render_first = norm_w.left.y < norm_w2.left.y
+					print("Walls are in the same spot: ",w.id, w2.id,render_first)
+					--return render_first
+					return false
+				end
+
+				return self:am_i_in_front_of_wall(norm_w.top, w2) == false 
+			end
 		}
 	}
 
+	-- Harvest uprights from data
+	-- TODO: load these into the renderer as needed
+	uprights = {}
+	for k,entity in pairs(world_data.entities) do 
+		table.insert(uprights, entity:GetBillboard())
+	end
+	for k,wall in pairs(world_data.walls) do 
+		table.insert(uprights, wall)
+	end
 
-	for k, upright in pairs(self.uprights) do
+	-- Start blank graph
+	for k, upright in pairs(uprights) do
+		--print(upright)
 		graph[upright.id] = {
 			down={},
-			up={}
+			up={},
+			drawable = upright,
 		}
 	end
 
-	for k,upright in pairs(self.uprights) do
-		for k2,check in pairs(self.uprights) do
+	-- Do the N^2 graph construction
+	for k,upright in pairs(uprights) do
+		for k2,check in pairs(uprights) do
 			if upright.id == check.id then goto continue end
 
 			if (dependency_checks[upright.type][check.type](upright, check)) then
@@ -391,6 +380,7 @@ function IsoRenderer:construct_dependency_graph()
 		end
 	end
 
+	-- DEBUG: print the graph
 	for id,dependencies in pairs(graph) do
 		s = "["
 		for idx,depId in pairs(dependencies.up) do
@@ -403,16 +393,78 @@ function IsoRenderer:construct_dependency_graph()
 		print(s)
 	end
 
+	return graph
+
 	
 end
 
-function IsoRenderer:draw_from_graph()
-	local depGraph = self:construct_dependency_graph()
+--- Traverse the dependency graph and draw things only after their dependencies have been drawn
+function IsoRenderer:draw_from_graph(world_data)
+	print("Draw time")
+	local depGraph = self:construct_dependency_graph(world_data)
 
-	local visited = {}
+	local no_deps = {}
+	for id,deps in pairs(depGraph) do
+		if (#deps.up == 0) then
+			table.insert(no_deps, id)
+		end
+	end
 
-	
+	assert(#no_deps > 0)
+
+	visited = List:New()
+	seen = List:New()
+
+	debug.cur_draw_counter = 0
+	--print("Draw time!")
+	for k,id in ipairs(no_deps) do
+		self:draw_from_node(id, depGraph[id], depGraph, visited, seen)
+	end
 
 end
+
+function IsoRenderer:draw_from_node(id, deps, graph, visited, seen)
+
+	if (visited:Has(id)) then return end
+	if (not seen:Has(id)) then 
+		seen:Push(id)
+	end
+
+	for k,upId in pairs(deps.up) do
+		if (not visited:Has(upId)) then
+			print(visited)
+			print(id.." is requesting draw for dependency "..upId)
+			self:draw_from_node(upId,graph[upId],graph, visited,seen)
+		else
+			print(id.." is skipping draw request for dependency "..upId.." because we've visited it")
+		end
+	end
+
+	if (not visited:Has(id)) then
+		visited:Push(id)
+		print("Got to draw call for: " .. id .. ", ", graph[id].drawable)
+		debug.cur_draw_counter = debug.cur_draw_counter + 1
+		self:draw_iso_drawable(graph[id].drawable)
+	end
+
+	for k,downId in pairs(deps.down) do
+		if (not visited:Has(downId)) then
+			print(id.." Believes it's okay to request draw for "..downId)
+			self:draw_from_node(downId,graph[downId],graph,visited,seen)
+		end
+	end
+end
+
+--[[
+function IsoRenderer:plain_draw(world_data)
+	for id,wall in pairs(world_data.walls) do
+		self:draw_wall(wall)
+	end
+
+	for id,ent in pairs(world_data.entities) do
+		self:draw_billboard(ent:GetBillboard())
+	end
+end
+]]
 
 return IsoRenderer

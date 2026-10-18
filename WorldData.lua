@@ -2,61 +2,34 @@
 ---@field tiles
 local WorldData = {}
 
----@class Tile
-local Tile = {
-	type="tile",
-	pos = {x = 0, y = 0},
-	color = {1,1,1},
 
-	New = function(self, ob)
-		local o = ob or {}
-		setmetatable(o, {__index=self})
-		return o
-	end
-}
-
----@class Wall
-local Wall = {
-	type="wall",
-	from = {x=0, y=0},
-	to = {x=0,y=0},
-	height = 1,
-	color = {1,1,1},
-	New = function(self, ob)
-		local o = ob or {}
-		setmetatable(o, {__index=self})
-		return o
-	end
-}
-
----@class Billboard
----@field pos WorldCoord
-local Billboard = {
-	type="billboard",
-	pos = {x = 0, y=0},
-	size = {width=1, height=1},
-	color = {1,1,1},
-
-	New = function(self, ob)
-		local o = ob or {}
-		setmetatable(o, {__index=self})
-		return o
-	end
-}
-
-
-
-function WorldData:new()
+function WorldData:New()
 	local o = {
 
-		tiles: {}
-		walls: {}
+		tiles={},
+		walls={},
+		entities={},
 		
 	}
 
-	setmetatable(o, {__index=self})
+	setmetatable(o, self)
+	self.__index = self
 	return o
 end
 
+
+function WorldData:LoadEntity(entity)
+	if (self.entities[entity.id] ~= nil) then
+		assert(1==2, 'Trying to register an entity that has already been registered')
+	end
+	self.entities[entity.id] = entity
+end
+
+function WorldData:LoadWall(wall)
+	if (self.walls[wall.id] ~= nil) then
+		assert(1==2, 'Trying to register a wall that has already been registered')
+	end
+	self.walls[wall.id] = wall
+end
 
 return WorldData

@@ -10,7 +10,7 @@ local Billboard = {
 
 	New = function(self, ob)
 		local o = ob or {}
-		Entity.assign_id(o);
+		if (o.id == nil) then Entity.assign_id(o) end
 		setmetatable(o, {
 			__index=self,
 			__tostring=function(b) return "["..b.id.."] Billboard ("..b.pos.x..","..b.pos.y..")" end
