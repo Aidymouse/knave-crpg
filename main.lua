@@ -1,10 +1,11 @@
-local IsoRenderer = require 'IsoRenderer'
+local IsoRenderer = require 'renderer.IsoRenderer'
+local Wall = require 'renderer.Wall'
+local Billboard = require 'renderer.Billboard'
 
 local Entity = require 'Entity'
-local Vec2 = require 'Vec2'
-local Wall = require 'Wall'
-local Billboard = require 'Billboard'
-local List = require 'List'
+
+local Vec2 = require 'lib.Vec2'
+local List = require 'lib.List'
 
 ---@class Tile
 local Tile = {

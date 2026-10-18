@@ -22,7 +22,7 @@
 -- -----------------------
 --]]
 
-local Vec2 = require "Vec2"
+local Vec2 = require "lib.Vec2"
 
 local IsoRenderer = {}
 local debug = {
