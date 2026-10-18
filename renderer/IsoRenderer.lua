@@ -329,11 +329,12 @@ function IsoRenderer:construct_dependency_graph(world_data)
 		wall = {
 			billboard = function (w, b) return self:am_i_in_front_of_wall(b.pos, w) end,
 			wall = function(w, w2) 
+				--[[
 				local norm_w = get_norm_wall(w, self.tile_draw_rect)
 				local norm_w2 = get_norm_wall(w2, self.tile_draw_rect)
 
 				-- If two walls are on the same spot, just favour the leftmost one
-				if (norm_w.top.y == norm_w2.top.y and norm_w.top.x == norm_w2.top.x) then
+				if (Vec2:New(norm_w.top) == Vec2:New(norm_w2.top) or Vec2:New(norm_w.bottom)) then
 					print(Vec2:New(norm_w.left), Vec2:New(norm_w2.left))
 					local render_first = norm_w.left.y < norm_w2.left.y
 					print("Walls are in the same spot: ",w.id, w2.id,render_first)
@@ -342,6 +343,9 @@ function IsoRenderer:construct_dependency_graph(world_data)
 				end
 
 				return self:am_i_in_front_of_wall(norm_w.top, w2) == false 
+				]]
+
+				return w.from.x + w.from.y + w.to.x + w.to.y < w2.from.x + w2.from.y + w2.to.x + w2.to.y
 			end
 		}
 	}
