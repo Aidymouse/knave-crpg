@@ -15,7 +15,7 @@ function love.load()
 
 	player = Entity:New({
 		radius=1,
-		pos=Vec2:New(2, 2),
+		pos=Vec2:New(0, 0),
 		GetBillboard=function(self)
 			b = Billboard:New({id=self.id, pos=self.pos, size={width=1, height=1},color={0.5,0,0}})
 			return b
@@ -29,18 +29,16 @@ function love.load()
 
 	loaded_level:LoadEntity(player)
 
-	--[[
 	loaded_level:LoadWall(Wall:New{from={x=0, y=0}, to={x=0,y=11}, color={0.8,0.8,0.8}})
 	loaded_level:LoadWall(Wall:New{from={x=0, y=0}, to={x=11,y=0}, color={0.6,0.6,0.6}})
 	loaded_level:LoadWall(Wall:New{from={x=4.5, y=3.5}, to={x=4.5,y=8.5}, color={0,0,0.25}})
 	loaded_level:LoadWall(Wall:New{from={x=5, y=6}, to={x=5,y=11}, color={0,0,0.5}})
-	]]
 
+	--[[
 	loaded_level:LoadWall(Wall:New{from={x=0, y=0}, to={x=0,y=5}, color={1,0,0}})
-  loaded_level:LoadWall(Wall:New{from={x=0, y=5}, to={x=7,y=9}, color={1,0,0}})
-	loaded_level:LoadWall(Wall:New{from={x=7, y=9}, to={x=0,y=0}, color={0,1,0}})
-
-
+  loaded_level:LoadWall(Wall:New{from={x=0, y=5}, to={x=7,y=9}, color={0,1,0}})
+	loaded_level:LoadWall(Wall:New{from={x=7, y=9}, to={x=0,y=0}, color={0,0,1}})
+	]]
 
 	iso_renderer = IsoRenderer:New()
 end

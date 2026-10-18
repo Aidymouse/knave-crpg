@@ -28,7 +28,7 @@ local List = require "lib.List"
 local IsoRenderer = {}
 local debug = {
 	-- Global switch
-	enabled=true,
+	enabled=false,
 	-- Tint drawn objects based on depth
 	draw_depth=false,
 	-- updated as draw calls are made, so we can see draw order on the objects themselves
@@ -74,21 +74,38 @@ function get_norm_wall(wall, draw_rect)
 
 	local bottom=wall.to
 	local top=wall.from
+	local screen_bottom=screen_to
+	local screen_top=screen_from
 
 	if (screen_from.y > screen_to.y) then
 			bottom=wall.from
 			top=wall.to
+			screen_bottom=screen_from
+			screen_top=screen_to
 	end
 
 	local left=wall.to
 	local right=wall.from
+	local screen_left=screen_to
+	local screen_right=screen_from
 
 	if (screen_from.x < screen_to.x) then
 		left = wall.from
 		right = wall.to
+		local screen_left=screen_from
+		local screen_right=screen_to
 	end
 
-	return { left=left, right=right, top=top, bottom=bottom }
+	return { 
+		left=left,
+		right=right,
+		top=top,
+		bottom=bottom,
+		screen_top=screen_top,
+		screen_left=screen_left,
+		screen_right=screen_right,
+		screen_bottom=screen_bottom,
+	}
 
 end
 
@@ -330,8 +347,6 @@ function IsoRenderer:construct_dependency_graph(world_data)
 			billboard = function (w, b) return self:am_i_in_front_of_wall(b.pos, w) end,
 			wall = function(w, w2) 
 				--[[
-				local norm_w = get_norm_wall(w, self.tile_draw_rect)
-				local norm_w2 = get_norm_wall(w2, self.tile_draw_rect)
 
 				-- If two walls are on the same spot, just favour the leftmost one
 				if (Vec2:New(norm_w.top) == Vec2:New(norm_w2.top) or Vec2:New(norm_w.bottom)) then
@@ -343,7 +358,18 @@ function IsoRenderer:construct_dependency_graph(world_data)
 				end
 
 				return self:am_i_in_front_of_wall(norm_w.top, w2) == false 
-				]]
+				]]	
+
+				-- If the walls don't overlap on the screen in any way then it actually does not matter and idgaf
+				local norm_w = get_norm_wall(w, self.tile_draw_rect)
+				local norm_w2 = get_norm_wall(w2, self.tile_draw_rect)
+
+				local w_aabb = { x=norm_w.screen_left.x, y=norm_w.screen_top.y, width=norm_w.screen_right.x - norm_w.screen_left.x, height=norm_w.screen_bottom.y - norm_w.screen_top.y }
+				local w2_aabb = { x=norm_w2.screen_left.x, y=norm_w.screen_top.y, width=norm_w.screen_right.x - norm_w.screen_left.x, height=norm_w.screen_bottom.y - norm_w.screen_top.y }
+
+				local overlap = w_aabb.x < w2_aabb.x + w2_aabb.width and w_aabb.x + w_aabb.width > w2_aabb.x and w_aabb.y < w2_aabb.y + w2_aabb.height and w_aabb.y + w_aabb.height > w2_aabb.y
+				
+				if (not overlap) then return false end
 
 				return w.from.x + w.from.y + w.to.x + w.to.y < w2.from.x + w2.from.y + w2.to.x + w2.to.y
 			end
@@ -436,24 +462,24 @@ function IsoRenderer:draw_from_node(id, deps, graph, visited, seen)
 
 	for k,upId in pairs(deps.up) do
 		if (not visited:Has(upId)) then
-			print(visited)
-			print(id.." is requesting draw for dependency "..upId)
+			--print(visited)
+			--print(id.." is requesting draw for dependency "..upId)
 			self:draw_from_node(upId,graph[upId],graph, visited,seen)
 		else
-			print(id.." is skipping draw request for dependency "..upId.." because we've visited it")
+			--print(id.." is skipping draw request for dependency "..upId.." because we've visited it")
 		end
 	end
 
 	if (not visited:Has(id)) then
 		visited:Push(id)
-		print("Got to draw call for: " .. id .. ", ", graph[id].drawable)
+		--print("Got to draw call for: " .. id .. ", ", graph[id].drawable)
 		debug.cur_draw_counter = debug.cur_draw_counter + 1
 		self:draw_iso_drawable(graph[id].drawable)
 	end
 
 	for k,downId in pairs(deps.down) do
 		if (not visited:Has(downId)) then
-			print(id.." Believes it's okay to request draw for "..downId)
+			--print(id.." Believes it's okay to request draw for "..downId)
 			self:draw_from_node(downId,graph[downId],graph,visited,seen)
 		end
 	end
