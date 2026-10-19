@@ -420,7 +420,7 @@ function IsoRenderer:construct_dependency_graph(world_data)
 		for idx,depId in pairs(dependencies.down) do
 			s = s .. depId .. ", "
 		end
-		print(s)
+		--print(s)
 	end
 
 	return graph
@@ -430,7 +430,7 @@ end
 
 --- Traverse the dependency graph and draw things only after their dependencies have been drawn
 function IsoRenderer:draw_from_graph(world_data)
-	print("Draw time")
+	--print("Draw time")
 	local depGraph = self:construct_dependency_graph(world_data)
 
 	local no_deps = {}

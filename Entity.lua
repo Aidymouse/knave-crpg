@@ -3,7 +3,7 @@ local Vec2 = require 'lib.Vec2'
 local id = 0;
 local Entity = {}
 
-
+-- An entity is an object that exists in the game world, meaning it has a position
 function Entity:New(ob)
 	local o = {
 		id=id,
