@@ -23,11 +23,13 @@ function CombatEngine:New(ob)
 		o[k] = v
 	end
 
-	self.ui = Badr{x=10,y=10}
-
-	self.ui = self.ui + BadrButton{id="hibtn", text="hi", onMouseUp=function(self) print("Hi") end}
-
 	assert(o.renderer ~= nil, "Please assign renderer to combat engine")
+
+	-- Construct UI
+	self.ui = Badr{x=10,y=10, column=true, gap=5}
+
+	self.ui = self.ui + BadrButton{id="deselect", text="Deselect", onMouseUp=function(btn) o.selected_actor = nil end}
+	self.ui = self.ui + BadrButton{id="atk", text="Attack"}
 
 	setmetatable(o, self)
 	self.__index = self
@@ -53,7 +55,7 @@ end
 
 function CombatEngine:UpdateUI()
 
-	local b = self.ui % "hibtn"
+	local b = self.ui
 	b.visible = false
 	if (self.selected_actor) then
 		b.visible = true
