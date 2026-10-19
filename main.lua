@@ -9,6 +9,9 @@ local WorldData = require 'WorldData'
 local Entity = require 'Entity'
 local Character = require 'Character'
 
+local Badr = require 'lib.Badr.badr'
+local BadrButton = require 'lib.Badr.components.button'
+
 local Vec2 = require 'lib.Vec2'
 local List = require 'lib.List'
 
@@ -87,6 +90,7 @@ function love.update(dt)
 	player.pos = player.pos + move * dt
 
 	combat_engine:Update(dt)
+
 
 end
 
